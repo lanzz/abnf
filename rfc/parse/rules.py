@@ -6,8 +6,9 @@ __all__ = [
     'Chars',
     'Literal',
     'LiteralCS',
+    'RegExp',
     'Sequence',
-    'Alt', 'Ch', 'L', 'LC', 'Seq',
+    'Alt', 'Ch', 'L', 'LC', 'Rx', 'Seq',
 ]
 
 
@@ -211,6 +212,36 @@ def LiteralCS(literal):
     :returns: `Literal`
     """
     return Literal(literal, casefold=False)
+
+
+class RegExp(Rule):
+    """Rule matching a regular expression at start of input."""
+
+    def __init__(self, regexp, flags=None):
+        """Initializer.
+
+        :param regexp: regular expression to match
+        :param flags: regular expression flags
+        """
+        super(RegExp, self).__init__()
+        if isinstance(regexp, str):
+            regexp = re.compile(regexp, flags)
+        self.regexp = regexp
+
+    def parse(self, s):
+        """Parse a string.
+
+        Named groups will be extracted as captures.
+
+        :param s: string to parse
+        :returns: `Match` or None
+        """
+        m = self.regexp.match(s)
+        if not m:
+            return None
+        value = m.group(0)
+        captures = m.groupdict()
+        return Match(value=value, captures=captures, unparsed=s[len(value):])
 
 
 class Chars(Rule):
@@ -486,5 +517,6 @@ class Alternatives(Rule):
 L = Literal
 LC = LiteralCS
 Ch = Chars
+Rx = RegExp
 Seq = Sequence
 Alt = Alternatives
