@@ -33,6 +33,7 @@ class ABNF:
         HEXDIG = DIGIT | CharRange('abcdefABCDEF')
         HTAB = CharRange(C.HTAB)
         SP = CharRange(C.SP)
+        VCHAR = CharRange('!', '~')
 
     ALPHA = Ch(R.ALPHA)
     BIT = Ch(R.BIT)
@@ -56,5 +57,4 @@ class ABNF:
                                         # Do not use when defining mail
                                         #  headers and use with caution in
                                         #  other contexts.
-    SP = CharRange(' ')
-    VCHAR = CharRange('!', '~')
+    VCHAR = Ch(R.VCHAR)                 # visible (printing) characters
