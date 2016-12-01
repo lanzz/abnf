@@ -197,20 +197,18 @@ class Assert(RuleWrapper):
 class Repeat(RuleWrapper):
     """Repeatly match a rule in sequence."""
 
-    def __init__(self, rule, delimiter=None, min=0, max=None, ws=True):
+    def __init__(self, rule, delimiter=None, min=0, max=None):
         """Initializer.
 
         :param rule: rule to wrap
         :param delimiter: additional rule to match between repetitions of `rule`
         :param min: minimum number of matches
         :param max: maximum number of matches
-        :param ws: if true, whitespace between repetitions will be stripped
         """
         super(Repeat, self).__init__(rule)
         self.delimiter = ensure_rule(delimiter)
         self.min = min
         self.max = max
-        self.ws = ws
 
     def __repr__(self):
         """Render representation.
@@ -253,7 +251,7 @@ class Repeat(RuleWrapper):
                 match = self.rule.parse(remainder)
             else:
                 # subsequent matches include the delimiter (if any)
-                match = delim_rule.parse(remainder.lstrip() if self.ws else remainder)
+                match = delim_rule.parse(remainder)
             if not match:
                 break
             if remainder == match.unparsed:
