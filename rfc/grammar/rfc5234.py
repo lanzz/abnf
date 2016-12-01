@@ -34,6 +34,7 @@ class ABNF:
         HTAB = CharRange(C.HTAB)
         SP = CharRange(C.SP)
         VCHAR = CharRange('!', '~')
+        OCTET = CharRange(0x00, 0xFF)
 
     ALPHA = Ch(R.ALPHA)
     BIT = Ch(R.BIT)
@@ -58,3 +59,4 @@ class ABNF:
                                         #  headers and use with caution in
                                         #  other contexts.
     VCHAR = Ch(R.VCHAR)                 # visible (printing) characters
+    OCTET = Ch(R.OCTET)                 # 8 bits of data
