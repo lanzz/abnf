@@ -58,3 +58,9 @@ class URI:
     URI = scheme + ':' + hier_part + ~('?' + query) + ~('#' + fragment)
     absolute_URI = scheme + ':' + hier_part + ~('?' + query)
     URI_reference = URI | relative_ref
+
+    # RFC-endorsed regular expression to parse (some of) the components of a URI reference
+    URI_ref_rx = Rx(
+        r'''^((?P<scheme>[^:/?#]+):)?(//(?P<authority>[^/?#]*))?''' +
+        r'''(?P<path>[^?#]*)(\?(?P<query>[^#]*))?(#(?P<fragment>.*))?'''
+    )
