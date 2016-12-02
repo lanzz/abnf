@@ -27,8 +27,12 @@ class HTTP:
 
         tchar = CharRange('''!#$%&'*+-.^_`|~''') | ABNF.R.DIGIT | ABNF.R.ALPHA
         obs_text = CharRange(0x80, 0xFF)
+        qdtext = ABNF.R.HTAB | ABNF.R.SP | '!' | CharRange('#', '[') | CharRange(']', '~') | obs_text
+        ctext = ABNF.R.HTAB | ABNF.R.SP | CharRange('!', "'") | CharRange('*', '[') | CharRange(']', '~') | obs_text
 
     OWS = OWS
+    BWS = OWS
+    RWS = OWS[1:]
 
     # Components of HTTP messages
     tchar = Ch(R.tchar)
@@ -60,3 +64,35 @@ class HTTP:
     message_body = Ch()[:]
 
     HTTP_message = start_line + (header_field + ABNF.CRLF)[:] + ABNF.CRLF + ~message_body
+
+    # Components of header values
+    connection_option = token
+    uri_host = URI.host
+    port = URI.port
+    qdtext = Ch(R.qdtext)
+    quoted_pair = L('\\') + Ch(ABNF.R.HTAB | ABNF.R.SP | ABNF.R.VCHAR | R.obs_text)
+    quoted_string = ABNF.DQUOTE + (qdtext[1:] | quoted_pair)[:] + ABNF.DQUOTE
+    transfer_parameter = token + BWS + '=' + BWS + (token | quoted_string)
+    transfer_extension = token + (OWS + ';' + OWS + transfer_parameter)[:]
+    transfer_coding = L('chunked') | L('compress') | L('deflate') | L('gzip') | transfer_extension
+    rank = ('0' + ~('.' + ABNF.DIGIT[:3])) | ('1' + ~(Ch('0')[:3]))
+    t_ranking = OWS + ';' + OWS + L('q=') + rank
+    t_codings = L('trailers') | (transfer_coding + ~t_ranking)
+    protocol_name = token
+    protocol_version = token
+    protocol = protocol_name + ~('/' + protocol_version)
+    pseudonym = token
+    received_protocol = ~(protocol_name + '/') + protocol_version
+    received_by = (uri_host + ~(':' + port)) | pseudonym
+    ctext = Ch(R.ctext)
+    comment = L('(') + (ctext[1:] | quoted_pair | Ref(lambda: HTTP.comment))[:] + L(')')
+
+    # Header values
+    Connection = CSV(connection_option)
+    Content_Length = ABNF.DIGIT[1:]
+    Host = uri_host + ~(':' + port)
+    TE = CSV(t_codings, min=0)
+    Trailer = CSV(field_name)
+    Transfer_Encoding = CSV(transfer_coding)
+    Upgrade = CSV(protocol)
+    Via = CSV(received_protocol + RWS + received_by + ~(RWS + comment))
