@@ -1,6 +1,6 @@
 """Augmented BNF for Syntax Specifications: ABNF.
 
-https://tools.ietf.org/html/rfc5234
+Authority: https://tools.ietf.org/html/rfc5234
 """
 from ..parse import *
 

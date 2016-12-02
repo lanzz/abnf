@@ -1,6 +1,6 @@
 """Hypertext Transfer Protocol (HTTP/1.1): Message Syntax and Routing.
 
-https://tools.ietf.org/html/rfc7230
+Authority: https://tools.ietf.org/html/rfc7230
 """
 from ..parse import *
 from .rfc3986 import URI
