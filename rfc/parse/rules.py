@@ -4,6 +4,7 @@ from .containers import Context, Match
 
 
 __all__ = [
+    'NoMatchError',
     'Alternatives',
     'Chars',
     'Literal',
@@ -31,6 +32,17 @@ def ensure_rule(value):
 class NoMatchError(ValueError):
     """Indicates a failed parse."""
 
+    def __init__(self, *args, rule=None, unparsed=None):
+        """Initializer.
+
+        :param args: arguments to pass through to super
+        :param rule: rule that failed to match
+        :param unparsed: string that was being parsed
+        """
+        super(NoMatchError, self).__init__(*args)
+        self.rule = rule
+        self.unparsed = unparsed
+
 
 class Rule(object):
     """Base class for all parser rules."""
@@ -42,7 +54,7 @@ class Rule(object):
         :returns: `Match` or None
         """
         # by default, do not match anything
-        return None
+        raise NoMatchError(rule=self, unparsed=s)
 
     def __call__(self, s, partial=False):
         """Parse a string and return its values.
@@ -51,10 +63,8 @@ class Rule(object):
         :param partial: boolean indicating whether to accept a partial match at start of ``s``
         """
         match = self.parse(s)
-        if match and match.unparsed and not partial:
+        if match.unparsed and not partial:
             match = None
-        if not match:
-            raise NoMatchError
         return match.context
 
     def __getitem__(self, item):
@@ -200,7 +210,7 @@ class Literal(Rule):
         """
         cs = s.casefold() if self.casefold else s
         if not cs.startswith(self.literal):
-            return None
+            raise NoMatchError(rule=self, unparsed=s)
         value = s[:self.len]
         value = value.casefold() if self.casefold else value
         return Match(value=value, unparsed=s[self.len:])
@@ -241,7 +251,7 @@ class RegExp(Rule):
         """
         m = self.regexp.match(s)
         if not m:
-            return None
+            raise NoMatchError(rule=self, unparsed=s)
         value = m.group(0)
         context = m.groupdict()
         return Match(value=value, context=context, unparsed=s[len(value):])
@@ -309,7 +319,7 @@ class Chars(Rule):
             match = min(match, self.max)
         if match < self.min:
             # not enough matching characters
-            return None
+            raise NoMatchError(rule=self, unparsed=s)
         value = s[:match]
         return Match(value, unparsed=s[match:])
 
@@ -368,8 +378,6 @@ class Sequence(Rule):
         remainder = s
         for rule in self.rules:
             match = rule.parse(remainder.lstrip() if (matches and self.ws) else remainder)
-            if not match:
-                return None
             matches.append(match)
             remainder = match.unparsed
         value = ''.join(match.str_value for match in matches)
@@ -488,13 +496,15 @@ class Alternatives(Rule):
         :returns: `Match` or None
         """
         for rule in self.rules:
-            match = rule.parse(s)
-            if match:
-                assert s != match.unparsed, 'Zero-length match in Alternatives rule: {rule!r}'.format(
-                    rule=rule,
-                )
-                return match
-        return None
+            try:
+                match = rule.parse(s)
+            except NoMatchError:
+                continue
+            assert s != match.unparsed, 'Zero-length match in Alternatives rule: {rule!r}'.format(
+                rule=rule,
+            )
+            return match
+        raise NoMatchError(rule=self, unparsed=s)
 
     def __or__(self, other):
         """Append a rule to the list of alternatives.

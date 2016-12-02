@@ -1,5 +1,5 @@
 from .containers import Context, Match
-from .rules import ensure_rule, Literal, Rule
+from .rules import ensure_rule, Literal, NoMatchError, Rule
 
 
 __all__ = [
@@ -71,9 +71,10 @@ class Optional(RuleWrapper):
         :param s: string to parse
         :returns: `Match`
         """
-        match = super(Optional, self).parse(s)
-        if not match:
-            match = Match(value=default, unparsed=s)
+        try:
+            match = super(Optional, self).parse(s)
+        except NoMatchError:
+            match = Match(value=self.default, unparsed=s)
         return match
 
 
@@ -106,10 +107,9 @@ class Capture(RuleWrapper):
         :returns: `Match` or None
         """
         match = super(Capture, self).parse(s)
-        if match:
-            match.context.update({
-                self.name: match.value,
-            })
+        match.context.update({
+            self.name: match.value,
+        })
         return match
 
     def __pos__(self):
@@ -147,8 +147,7 @@ class Transform(RuleWrapper):
         :returns: `Match` or None
         """
         match = super(Transform, self).parse(s)
-        if match:
-            match.value = self.fn(match.value)
+        match.value = self.fn(match.value)
         return match
 
 
@@ -189,8 +188,8 @@ class Assert(RuleWrapper):
         :returns: `Match` or None
         """
         match = super(Assert, self).parse(s)
-        if match and not self.condition(match):
-            return None
+        if not self.condition(match):
+            raise NoMatchError(rule=self, unparsed=s)
         return match
 
 
@@ -245,13 +244,14 @@ class Repeat(RuleWrapper):
         while True:
             if (self.max is not None) and (len(matches) >= self.max):
                 break
-            if not matches:
-                # first match, no delimiter
-                match = self.rule.parse(remainder)
-            else:
-                # subsequent matches include the delimiter (if any)
-                match = delim_rule.parse(remainder)
-            if not match:
+            try:
+                if not matches:
+                    # first match, no delimiter
+                    match = self.rule.parse(remainder)
+                else:
+                    # subsequent matches include the delimiter (if any)
+                    match = delim_rule.parse(remainder)
+            except NoMatchError:
                 break
             if remainder == match.unparsed:
                 # a zero-length match will keep matching forever
@@ -312,7 +312,7 @@ class Flatten(RuleWrapper):
         :returns: `Match` or None
         """
         match = super(Flatten, self).parse(s)
-        if match and isinstance(match.value, list):
+        if isinstance(match.value, list):
             match.value = match.str_value
         return match
 
@@ -339,11 +339,10 @@ class Mapping(Repeat):
         :returns: `Match` or None
         """
         match = super(Mapping, self).parse(s)
-        if match:
-            match.value = Context(
-                (kvpair[self.key_name], kvpair[self.value_name])
-                for kvpair in match.value
-            )
+        match.value = Context(
+            (kvpair[self.key_name], kvpair[self.value_name])
+            for kvpair in match.value
+        )
         return match
 
 
