@@ -38,7 +38,7 @@ class HTTP:
     start_line = request_line | status_line
     field_name = token
     field_vchar = Ch(ABNF.R.VCHAR | R.obs_text)
-    field_content = field_vchar[1:] + ~((Ch(ABNF.R.SP | ABNF.R.HTAB))[1:] + field_vchar[1:])
+    field_content = field_vchar[1:][1::(Ch(ABNF.R.SP | ABNF.R.HTAB))[1:]]
     obs_fold = ABNF.CRLF + Ch(ABNF.R.SP | ABNF.R.HTAB)[1:]
     field_value = (field_content | obs_fold)[:]
     OWS = Ch(ABNF.R.SP | ABNF.R.HTAB)[:]
