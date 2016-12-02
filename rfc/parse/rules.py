@@ -118,22 +118,18 @@ class Rule(object):
     def __add__(self, other):
         """Combine self and other into a `Sequence`.
 
-        Whitespace between rules will be preserved.
-
         :returns: `Sequence`
         """
         other = ensure_rule(other)
-        return Sequence(self, other, ws=False)
+        return Sequence(self, other)
 
     def __radd__(self, other):
         """Combine other and self into a `Sequence`.
 
-        Whitespace between rules will be preserved.
-
         :returns: `Sequence`
         """
         other = ensure_rule(other)
-        return Sequence(other, self, ws=False)
+        return Sequence(other, self)
 
     def __mul__(self, other):
         """Combine self and other into a `Sequence`.
@@ -143,7 +139,7 @@ class Rule(object):
         :returns: `Sequence`
         """
         other = ensure_rule(other)
-        return Sequence(self, other, ws=True)
+        return Sequence(self, WS(), other)
 
     def __rmul__(self, other):
         """Combine other and self into a `Sequence`.
@@ -153,7 +149,7 @@ class Rule(object):
         :returns: `Sequence`
         """
         other = ensure_rule(other)
-        return Sequence(other, self, ws=True)
+        return Sequence(other, WS(), self)
 
     def __or__(self, other):
         """Combine self and other into an `Alternatives`.
@@ -170,6 +166,23 @@ class Rule(object):
         """
         other = ensure_rule(other)
         return Alternatives(other, self)
+
+
+class WS(Rule):
+    """Strip non-significant whitespace."""
+
+    def __repr__(self):
+        """Render representation."""
+        return '<WS>'
+
+    def parse(self, s, context=None):
+        """Parse a string.
+
+        :param s: string to parse
+        :returns: `Match`
+        """
+        remaining = s.lstrip()
+        return Match(value='', unparsed=remaining)
 
 
 class Literal(Rule):
@@ -348,24 +361,21 @@ class Chars(Rule):
 class Sequence(Rule):
     """Rule matching a sequence of rules in order."""
 
-    def __init__(self, *rules, ws=True):
+    def __init__(self, *rules):
         """Initializer.
 
         :param rules: rules to match
-        :param ws: if true, whitespace between rules will be stripped
         """
         super(Sequence, self).__init__()
         self.rules = tuple(ensure_rule(rule) for rule in rules)
-        self.ws = ws
 
     def __repr__(self):
         """Render representation.
 
         :returns: str
         """
-        op = ' * ' if self.ws else ' + '
         return '<Seq {rules}>'.format(
-            rules=op.join(map(repr, self.rules)),
+            rules=' + '.join(map(repr, self.rules)),
         )
 
     def parse(self, s, context=None):
@@ -377,7 +387,7 @@ class Sequence(Rule):
         matches = []
         remainder = s
         for rule in self.rules:
-            match = rule.parse(remainder.lstrip() if (matches and self.ws) else remainder, context=context)
+            match = rule.parse(remainder, context=context)
             matches.append(match)
             remainder = match.unparsed
         value = ''.join(match.value for match in matches)
@@ -386,42 +396,32 @@ class Sequence(Rule):
     def __add__(self, other):
         """Append another rule to the sequence.
 
-        Whitespace between rules will be preserved.
-
         :param other: rule to append
         :returns: `Sequence`
         """
-        if self.ws:
-            # this sequence ignores whitespace, can't combine
-            return super(Sequence, self).__add__(other)
         other = ensure_rule(other)
-        if isinstance(other, Sequence) and other.ws:
-            # join together two compatible sequences
+        if isinstance(other, Sequence):
+            # join together two sequences
             other = Sequence.rules
         else:
             # append other to this sequence
             other = (other,)
-        return Sequence(*(self.rules + other), ws=False)
+        return Sequence(*self.rules, *other)
 
     def __radd__(self, other):
         """Prepend another rule to the sequence.
 
-        Whitespace between rules will be preserved.
-
         :param other: rule to prepend
         :returns: `Sequence`
         """
-        if self.ws:
-            # this sequence ignores whitespace, can't combine
-            return super(Sequence, self).__radd__(other)
         other = ensure_rule(other)
-        if isinstance(other, Sequence) and other.ws:
-            # join together two compatible sequences
+        if isinstance(other, Sequence):
+            # join together two sequences
             other = Sequence.rules
         else:
             # prepend other to this sequence
             other = (other,)
-        return Sequence(*(other + self.rules), ws=False)
+        return Sequence(*other, *self.rules)
 
     def __mul__(self, other):
         """Append another rule to the sequence.
@@ -431,17 +431,14 @@ class Sequence(Rule):
         :param other: rule to append
         :returns: `Sequence`
         """
-        if not self.ws:
-            # this sequence preserves whitespace, can't combine
-            return super(Sequence, self).__mul__(other)
         other = ensure_rule(other)
         if isinstance(other, Sequence) and not other.ws:
-            # join together two compatible sequences
+            # join together two sequences
             other = Sequence.rules
         else:
             # append other to this sequence
             other = (other,)
-        return Sequence(*(self.rules + other), ws=True)
+        return Sequence(*self.rules, WS(), *other)
 
     def __rmul__(self, other):
         """Prepend another rule to the sequence.
@@ -451,17 +448,14 @@ class Sequence(Rule):
         :param other: rule to prepend
         :returns: `Sequence`
         """
-        if not self.ws:
-            # this sequence ignores whitespace, can't combine
-            return super(Sequence, self).__rmul__(other)
         other = ensure_rule(other)
-        if isinstance(other, Sequence) and not other.ws:
-            # join together two compatible sequences
+        if isinstance(other, Sequence):
+            # join together two sequences
             other = Sequence.rules
         else:
             # prepend other to this sequence
             other = (other,)
-        return Sequence(*(other + self.rules), ws=True)
+        return Sequence(*other, WS(), *self.rules)
 
 
 class Alternatives(Rule):
