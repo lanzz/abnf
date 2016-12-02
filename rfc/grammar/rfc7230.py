@@ -90,7 +90,7 @@ class HTTP:
     received_protocol = ~(protocol_name + '/') + protocol_version
     received_by = (uri_host + ~(':' + port)) | pseudonym
     ctext = Ch(R.ctext)
-    comment = L('(') + (ctext[1:] | quoted_pair | Ref(lambda: HTTP.comment))[:] + L(')')
+    comment = L('(') + (ctext[1:] | quoted_pair | Ref(lambda ctx: HTTP.comment))[:] + L(')')
 
     # Chunked encoding
     chunk_size = ABNF.HEXDIG[1:]

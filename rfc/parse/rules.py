@@ -530,18 +530,13 @@ class Reference(Rule):
         super(Reference, self).__init__()
         self.fn = fn
 
-    @property
-    def rule(self):
-        """Expand the rule and cache it."""
-        self.__dict__['rule'] = self.fn()
-
     def parse(self, s, context=None):
         """Parse a string.
 
         :param s: string to parse
         :returns: `Match` or None
         """
-        return self.rule.parse(s, context=context)
+        return self.fn(context).parse(s, context=context)
 
 
 # shorthand names
