@@ -380,7 +380,7 @@ class Sequence(Rule):
             match = rule.parse(remainder.lstrip() if (matches and self.ws) else remainder, context=context)
             matches.append(match)
             remainder = match.unparsed
-        value = ''.join(match.str_value for match in matches)
+        value = ''.join(match.value for match in matches)
         return Match(value=value, unparsed=remainder)
 
     def __add__(self, other):

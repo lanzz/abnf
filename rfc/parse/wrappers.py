@@ -119,7 +119,7 @@ class Capture(RuleWrapper):
         assert context is not None, 'Cannot capture without a context'
         match = super(Capture, self).parse(s, context=context)
         context.update({
-            self.name: match.value,
+            self.name: match.capturable,
         })
         return match
 
@@ -239,7 +239,7 @@ class Repeat(RuleWrapper):
     def parse(self, s, context=None):
         """Collect all matches and wrap them in a overall `Match`.
 
-        The context value of the returned `Match` will be a list
+        The capturable value of the returned `Match` will be a list
         of the contexts of each repeated match. If you need to capture
         the textual match, you can wrap the `Repeat` inside a `Flatten` rule.
 
@@ -283,9 +283,9 @@ class Repeat(RuleWrapper):
                 break
         if len(matches) < self.min:
             raise NoMatchError(rule=self, unparsed=s)
-        value = [context for _, context in matches]
-        str_value = ''.join(match.str_value for match, _ in matches)
-        match = Match(value=value, str_value=str_value, unparsed=remainder)
+        capturable = [context for _, context in matches]
+        value = ''.join(match.value for match, _ in matches)
+        match = Match(value=value, capturable=capturable, unparsed=remainder)
         return match
 
     def __getitem__(self, item):
@@ -326,12 +326,12 @@ class Flatten(RuleWrapper):
         """
         match = super(Flatten, self).parse(s, context=context)
         if isinstance(match.value, list):
-            match.value = match.str_value
+            match.capturable = match.value
         return match
 
 
 class Mapping(Repeat):
-    """Transform a list of kvpairs into a mapping."""
+    """Transform a capturable list of kvpairs into a mapping."""
 
     def __init__(self, *args, key_name=None, value_name=None, **kwargs):
         """Initializer.
@@ -352,9 +352,9 @@ class Mapping(Repeat):
         :returns: `Match` or None
         """
         match = super(Mapping, self).parse(s, context=context)
-        match.value = Context(
+        match.capturable = Context(
             (kvpair[self.key_name], kvpair[self.value_name])
-            for kvpair in match.value
+            for kvpair in match.capturable
         )
         return match
 

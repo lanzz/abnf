@@ -33,16 +33,16 @@ class Context(OrderedDict):
 class Match(object):
     """Container for match of a rule."""
 
-    def __init__(self, value, str_value=None, unparsed=None):
+    def __init__(self, value, capturable=None, unparsed=None):
         """Initializer.
 
-        :param value: value that can be captured (defaults to `match`)
-        :param str_value: string value, if `value` is not string (see `Flatten`)
+        :param value: value of the match
+        :param capturable: value to store when the match is captured directly to context
         :param context: dictionary of the parse context
         :param unparsed: remaining input string after the matching portion
         """
         self.value = value
-        self.str_value = str_value if str_value is not None else str(value)
+        self.capturable = capturable
         self.unparsed = unparsed
 
     def __repr__(self):
