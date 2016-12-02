@@ -255,14 +255,16 @@ class Repeat(RuleWrapper):
         while True:
             if (self.max is not None) and (len(matches) >= self.max):
                 break
-            context = Context()
+            # instantiate a fresh context for the iteration
+            # and make the parent context available as a key
+            iter_context = Context(parent=context)
             try:
                 if not matches:
                     # first match, no delimiter
-                    match = self.rule.parse(remainder, context=context)
+                    match = self.rule.parse(remainder, context=iter_context)
                 else:
                     # subsequent matches include the delimiter (if any)
-                    match = delim_rule.parse(remainder, context=context)
+                    match = delim_rule.parse(remainder, context=iter_context)
             except NoMatchError:
                 break
             if remainder == match.unparsed:
@@ -273,7 +275,9 @@ class Repeat(RuleWrapper):
                 raise RuntimeError('Zero-length match in Repeat rule: {rule!r}'.format(
                     rule=(self.delimiter + self.rule) if self.delimiter is not None else self.rule,
                 ))
-            matches.append((match, context))
+            # discard the parent context, it was only there for the benefit of the child rule
+            del iter_context['parent']
+            matches.append((match, iter_context))
             remainder = match.unparsed
             if not remainder:
                 break
