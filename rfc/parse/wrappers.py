@@ -31,10 +31,7 @@ class RuleWrapper(Rule):
 
         :returns: str
         """
-        return '<{cls} {rule!r}>'.format(
-            cls=type(self).__name__,
-            rule=self.rule,
-        )
+        return repr(self.rule)
 
     def parse(self, s, context=None):
         """Wrap the underlying rule's parse method.
@@ -47,6 +44,10 @@ class RuleWrapper(Rule):
 
 class FullMatch(RuleWrapper):
     """Match the full string, leaving no remainder."""
+
+    def __repr__(self):
+        """Render representation."""
+        return '{rule!r} <END>'.format(rule=self.rule)
 
     def parse(self, s, context=None):
         match = super(FullMatch, self).parse(s, context=context)
@@ -66,6 +67,10 @@ class Optional(RuleWrapper):
         """
         super(Optional, self).__init__(rule)
         self.default = default if default is not None else ''
+
+    def __repr__(self):
+        """Render representation."""
+        return '[ {rule!r} ]'.format(rule=self.rule)
 
     def __invert__(self):
         """No need to wrap into another `Optional`, return self.
@@ -106,7 +111,7 @@ class Capture(RuleWrapper):
 
         :returns: str
         """
-        return '<Capture {name!r} = {rule!r}>'.format(
+        return '<{name!r} = {rule!r}>'.format(
             name=self.name,
             rule=self.rule,
         )
@@ -225,13 +230,13 @@ class Repeat(RuleWrapper):
 
         :returns: str
         """
-        return '<Repeat [{len}] {rule!r}{delimiter}>'.format(
-            len=self.min if self.min == self.max else '{min}..{max}'.format(
-                min=self.min,
-                max=self.max if self.max is not None else 'inf',
-            ),
+        return '{len}({rule!r}{delimiter})'.format(
+            len='{min}*{max}'.format(
+                min='' if not self.min else self.min,
+                max='' if not self.max else self.max,
+            ) if (self.min, self.max) != (0, None) else '*',
             rule=self.rule,
-            delimiter=' delimiter={delimiter!r}'.format(
+            delimiter=' [delim={delimiter!r}]'.format(
                 delimiter=self.delimiter,
             ) if self.delimiter is not None else '',
         )

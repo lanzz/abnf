@@ -173,7 +173,7 @@ class WS(Rule):
 
     def __repr__(self):
         """Render representation."""
-        return '<WS>'
+        return '[ <WS> ]'
 
     def parse(self, s, context=None):
         """Parse a string.
@@ -210,10 +210,7 @@ class Literal(Rule):
 
         :returns: str
         """
-        return '<Literal {literal!r}{casefold}>'.format(
-            literal=self.literal,
-            casefold=' (nocase)' if self.casefold else ' (case)',
-        )
+        return repr(self.literal)
 
     def parse(self, s, context=None):
         """Parse a string.
@@ -253,6 +250,12 @@ class RegExp(Rule):
         if isinstance(regexp, str):
             regexp = re.compile(regexp, flags or 0)
         self.regexp = regexp
+
+    def __repr__(self):
+        """Render representation."""
+        return '/{rx}/'.format(
+            rx=self.regexp.pattern.replace('\\', '\\\\').replace('/', '\\/'),
+        )
 
     def parse(self, s, context=None):
         """Parse a string.
@@ -298,15 +301,15 @@ class Chars(Rule):
 
         :returns: str
         """
-        return '<Chars [{len}] {chars}{exclude}>'.format(
-            len=self.min if self.min == self.max else '{min}..{max}'.format(
-                min=self.min,
-                max=self.max if self.max is not None else 'inf',
-            ),
+        return '{len}<{chars}{exclude}>'.format(
+            len='{min}*{max}'.format(
+                min='' if not self.min else self.min,
+                max='' if not self.max else self.max,
+            ) if (self.min, self.max) != (0, None) else '*',
             chars='{chars!r}'.format(
                 chars=''.join(sorted(self.chars)),
-            ) if self.chars is not None else '',
-            exclude='-{exclude!r}'.format(
+            ) if self.chars is not None else 'any',
+            exclude=' except {exclude!r}'.format(
                 exclude=self.exclude,
             ) if self.exclude is not None else '',
         )
@@ -374,8 +377,8 @@ class Sequence(Rule):
 
         :returns: str
         """
-        return '<Seq {rules}>'.format(
-            rules=' + '.join(map(repr, self.rules)),
+        return '({rules})'.format(
+            rules=' '.join(map(repr, self.rules)),
         )
 
     def parse(self, s, context=None):
@@ -402,7 +405,7 @@ class Sequence(Rule):
         other = ensure_rule(other)
         if isinstance(other, Sequence):
             # join together two sequences
-            other = Sequence.rules
+            other = other.rules
         else:
             # append other to this sequence
             other = (other,)
@@ -417,7 +420,7 @@ class Sequence(Rule):
         other = ensure_rule(other)
         if isinstance(other, Sequence):
             # join together two sequences
-            other = Sequence.rules
+            other = other.rules
         else:
             # prepend other to this sequence
             other = (other,)
@@ -432,9 +435,9 @@ class Sequence(Rule):
         :returns: `Sequence`
         """
         other = ensure_rule(other)
-        if isinstance(other, Sequence) and not other.ws:
+        if isinstance(other, Sequence):
             # join together two sequences
-            other = Sequence.rules
+            other = other.rules
         else:
             # append other to this sequence
             other = (other,)
@@ -451,7 +454,7 @@ class Sequence(Rule):
         other = ensure_rule(other)
         if isinstance(other, Sequence):
             # join together two sequences
-            other = Sequence.rules
+            other = other.rules
         else:
             # prepend other to this sequence
             other = (other,)
@@ -474,7 +477,7 @@ class Alternatives(Rule):
 
         :returns: str
         """
-        return '<Alt {rules}>'.format(
+        return '({rules})'.format(
             rules=' | '.join(map(repr, self.rules)),
         )
 
@@ -523,6 +526,10 @@ class Reference(Rule):
     def __init__(self, fn):
         super(Reference, self).__init__()
         self.fn = fn
+
+    def __repr__(self):
+        """Render representation."""
+        return '<Ref>'
 
     def parse(self, s, context=None):
         """Parse a string.
