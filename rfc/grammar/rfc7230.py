@@ -33,7 +33,7 @@ class HTTP:
     HTTP_version = HTTP_name + '/' + ABNF.DIGIT + '.' + ABNF.DIGIT
     request_line = method + ABNF.SP + request_target + ABNF.SP + HTTP_version + ABNF.CRLF
     status_code = ABNF.DIGIT[3]
-    reason_pharse = Ch(ABNF.R.HTAB | ABNF.R.SP | ABNF.R.VCHAR | R.obs_text)[:]
+    reason_phrase = Ch(ABNF.R.HTAB | ABNF.R.SP | ABNF.R.VCHAR | R.obs_text)[:]
     status_line = HTTP_version + ABNF.SP + status_code + ABNF.SP + reason_phrase + ABNF.CRLF
     start_line = request_line | status_line
     field_name = token
