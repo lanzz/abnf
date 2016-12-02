@@ -1,3 +1,5 @@
+import re
+
 from .containers import CaptureDict, Match
 
 
@@ -225,7 +227,7 @@ class RegExp(Rule):
         """
         super(RegExp, self).__init__()
         if isinstance(regexp, str):
-            regexp = re.compile(regexp, flags)
+            regexp = re.compile(regexp, flags or 0)
         self.regexp = regexp
 
     def parse(self, s):
