@@ -30,6 +30,7 @@ class HTTP:
 
     OWS = OWS
 
+    # Components of HTTP messages
     tchar = Ch(R.tchar)
     token = tchar[1:]
     method = token
@@ -57,4 +58,5 @@ class HTTP:
     field_value = (field_content | obs_fold)[:]
     header_field = field_name + ':' + OWS + field_value + OWS
     message_body = Ch()[:]
+
     HTTP_message = start_line + (header_field + ABNF.CRLF)[:] + ABNF.CRLF + ~message_body
