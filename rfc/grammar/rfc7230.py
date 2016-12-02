@@ -15,8 +15,10 @@ def CSV(rule, min=1, max=None):
     Allows empty items (', foo, , bar, ').
 
     :param rule: rule to match
+    :param min: minimum number of matches
+    :param max: maximum number of matches
     """
-    return (',' + OWS)[:] + rule + (OWS + ',' + ~(OWS + rule))[:]
+    return (OWS + L(',') + OWS)[:] + rule[min:max:(OWS + L(',') + OWS)[1:]] + (OWS + L(',') + OWS)[:]
 
 
 class HTTP:
