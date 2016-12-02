@@ -9,7 +9,7 @@ from .rfc5234 import ABNF
 
 OWS = Ch(ABNF.R.SP | ABNF.R.HTAB)[:]
 
-def CSV(rule, min=1, max=None):
+def CSV(rule, min=1, max=None, name=None):
     """Comma-separated list of `rule`.
 
     Allows empty items (', foo, , bar, ').
@@ -18,7 +18,10 @@ def CSV(rule, min=1, max=None):
     :param min: minimum number of matches
     :param max: maximum number of matches
     """
-    return (OWS + L(',') + OWS)[:] + rule[min:max:(OWS + L(',') + OWS)[1:]] + (OWS + L(',') + OWS)[:]
+    rule = rule[min:max:(OWS + L(',') + OWS)[1:]]
+    if name is not None:
+        rule = rule[str(name)]
+    return (OWS + L(',') + OWS)[:] + rule + (OWS + L(',') + OWS)[:]
 
 
 class HTTP:
