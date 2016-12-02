@@ -92,6 +92,16 @@ class HTTP:
     ctext = Ch(R.ctext)
     comment = L('(') + (ctext[1:] | quoted_pair | Ref(lambda: HTTP.comment))[:] + L(')')
 
+    # Chunked encoding
+    chunk_size = ABNF.HEXDIG[1:]
+    chunk_ext_name = token
+    chunk_ext_val = token | quoted_string
+    chunk_ext = (L(';') + chunk_ext_name + ~(L('=') + chunk_ext_val))[:]
+    chunk_data = Ch()[:]
+    chunk = chunk_size + ~chunk_ext + ABNF.CRLF + chunk_data + ABNF.CRLF
+    last_chunk = Ch('0')[1:] + ~chunk_ext + ABNF.CRLF
+    trailer_part = header_field[:] + ABNF.CRLF
+    chunked_body = chunk[:] + last_chunk + trailer_part + ABNF.CRLF
 
     # Principal rules
     HTTP_message = start_line + (header_field + ABNF.CRLF)[:] + ABNF.CRLF + ~message_body
