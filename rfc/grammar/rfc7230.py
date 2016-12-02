@@ -95,6 +95,9 @@ class HTTP:
 
     # Principal rules
     HTTP_message = start_line + (header_field + ABNF.CRLF)[:] + ABNF.CRLF + ~message_body
+    http_URI = L('http://') + authority + path_abempty + ~('?' + query) + ~('#' + fragment)
+    https_URI = L('https://') + authority + path_abempty + ~('?' + query) + ~('#' + fragment)
+    partial_URI = relative_part + ~('?' + query)
     Connection = CSV(connection_option)
     Content_Length = ABNF.DIGIT[1:]
     Host = uri_host + ~(':' + port)
