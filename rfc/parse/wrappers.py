@@ -46,6 +46,16 @@ class RuleWrapper(Rule):
         return self.rule.parse(s)
 
 
+class FullMatch(RuleWrapper):
+    """Match the full string, leaving no remainder."""
+
+    def parse(self, s, context=None):
+        match = super(FullMatch, self).parse(s)
+        if match.unparsed:
+            raise NoMatchError(rule=self, unparsed=match.unparsed)
+        return match
+
+
 class Optional(RuleWrapper):
     """Optionally match a rule."""
 

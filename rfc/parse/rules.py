@@ -62,9 +62,8 @@ class Rule(object):
         :param s: string to parse
         :param partial: boolean indicating whether to accept a partial match at start of ``s``
         """
-        match = self.parse(s)
-        if match.unparsed and not partial:
-            match = None
+        from .wrappers import FullMatch
+        match = FullMatch(self).parse(s)
         return match.context
 
     def __getitem__(self, item):
