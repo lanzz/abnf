@@ -6,7 +6,6 @@ __all__ = [
     'Assert',
     'Capture',
     'CaseFold',
-    'Flatten',
     'Ignore',
     'Mapping',
     'Optional',
@@ -91,14 +90,16 @@ class Optional(RuleWrapper):
 class Capture(RuleWrapper):
     """Capture rule value in the parse context."""
 
-    def __init__(self, rule, name):
+    def __init__(self, rule, name, raw=None):
         """Initializer.
 
         :param rule: rule to wrap
         :param name: context name for the captured value
+        :param raw: capture the raw value instead of the capturable value
         """
         super(Capture, self).__init__(rule)
         self.name = name
+        self.raw = False if raw is None else raw
 
     def __repr__(self):
         """Render representation.
@@ -118,25 +119,24 @@ class Capture(RuleWrapper):
         """
         assert context is not None, 'Cannot capture without a context'
         match = super(Capture, self).parse(s, context=context)
+        value = match.value if self.raw or (match.capturable is None) else match.capturable
         context.update({
-            self.name: match.capturable,
+            self.name: value,
         })
         return match
 
     def __pos__(self):
-        """Flatten a captured rule.
+        """Capture the raw value instead of the capturable value.
 
         Rep(L('foo')['in'])['out'] => {'out': [{'in': 'foo'}, {'in': 'foo'}]}
         +Rep(L('foo')['in'])['out'] => {'out': 'foofoo'}
 
-        Rewraps the underlying rule into a `Flatten` instance.
         `Repeat` rules are usually captured as a list of each matching repetition's context.
-        This is not always desirable; `Flatten` will replace the value of the `Repeat` match
-        with a text match of its contents instead.
+        This is not always desirable; flattening will capture the string value instead.
 
         :returns: `Capture`
         """
-        return Capture(Flatten(self.rule), self.name)
+        return Capture(self.rule, self.name, raw=True)
 
 
 class Transform(RuleWrapper):
@@ -241,7 +241,7 @@ class Repeat(RuleWrapper):
 
         The capturable value of the returned `Match` will be a list
         of the contexts of each repeated match. If you need to capture
-        the textual match, you can wrap the `Repeat` inside a `Flatten` rule.
+        the textual match, you can specify ``Capture(..., flat=True)``.
 
         :param s: string to parse
         :returns: `Match` or None
@@ -305,29 +305,6 @@ class Repeat(RuleWrapper):
         else:
             # delegate unhandled cases to super
             return super(Repeat, self).__getitem__(item)
-
-
-class Flatten(RuleWrapper):
-    """Flatten a Repeat match into a string for capturing.
-
-    Rep(L('foo')['in'])['out'] => {'out': [{'in': 'foo'}, {'in': 'foo'}]}
-    Flatten(Rep(L('foo')['in']))['out'] => {'out': 'foofoo'}
-
-    `Repeat` rules are usually captured as a list of each matching repetition's context.
-    This is not always desirable; `Flatten` will replace the value of the `Repeat` match
-    with a text match of its contents instead.
-    """
-
-    def parse(self, s, context=None):
-        """Flatten the value of a list match into a text match.
-
-        :param s: string to parse
-        :returns: `Match` or None
-        """
-        match = super(Flatten, self).parse(s, context=context)
-        if isinstance(match.value, list):
-            match.capturable = match.value
-        return match
 
 
 class Mapping(Repeat):
