@@ -47,7 +47,7 @@ class NoMatchError(ValueError):
 class Rule(object):
     """Base class for all parser rules."""
 
-    def parse(self, s):
+    def parse(self, s, context=None):
         """Parse a string into a `Match` instance.
 
         :param s: string to parse
@@ -63,8 +63,9 @@ class Rule(object):
         :param partial: boolean indicating whether to accept a partial match at start of ``s``
         """
         from .wrappers import FullMatch
-        match = FullMatch(self).parse(s)
-        return match.context
+        context = Context()
+        match = FullMatch(self).parse(s, context=context)
+        return context
 
     def __getitem__(self, item):
         """Item accessor.
@@ -201,7 +202,7 @@ class Literal(Rule):
             casefold=' (nocase)' if self.casefold else ' (case)',
         )
 
-    def parse(self, s):
+    def parse(self, s, context=None):
         """Parse a string.
 
         :param s: string to parse
@@ -240,7 +241,7 @@ class RegExp(Rule):
             regexp = re.compile(regexp, flags or 0)
         self.regexp = regexp
 
-    def parse(self, s):
+    def parse(self, s, context=None):
         """Parse a string.
 
         Named groups will be extracted as context.
@@ -297,7 +298,7 @@ class Chars(Rule):
             ) if self.exclude is not None else '',
         )
 
-    def parse(self, s):
+    def parse(self, s, context=None):
         """Parse a string.
 
         :param s: string to parse
@@ -367,7 +368,7 @@ class Sequence(Rule):
             rules=op.join(map(repr, self.rules)),
         )
 
-    def parse(self, s):
+    def parse(self, s, context=None):
         """Parse a string.
 
         :param s: string to parse
@@ -376,16 +377,11 @@ class Sequence(Rule):
         matches = []
         remainder = s
         for rule in self.rules:
-            match = rule.parse(remainder.lstrip() if (matches and self.ws) else remainder)
+            match = rule.parse(remainder.lstrip() if (matches and self.ws) else remainder, context=context)
             matches.append(match)
             remainder = match.unparsed
         value = ''.join(match.str_value for match in matches)
-        context = Context(
-            kv
-            for match in matches
-            for kv in match.context.items()
-        )
-        return Match(value=value, context=context, unparsed=remainder)
+        return Match(value=value, unparsed=remainder)
 
     def __add__(self, other):
         """Append another rule to the sequence.
@@ -488,7 +484,7 @@ class Alternatives(Rule):
             rules=' | '.join(map(repr, self.rules)),
         )
 
-    def parse(self, s):
+    def parse(self, s, context=None):
         """Parse a string.
 
         :param s: string to parse
@@ -496,7 +492,7 @@ class Alternatives(Rule):
         """
         for rule in self.rules:
             try:
-                match = rule.parse(s)
+                match = rule.parse(s, context=context)
             except NoMatchError:
                 continue
             assert s != match.unparsed, 'Zero-length match in Alternatives rule: {rule!r}'.format(
@@ -539,13 +535,13 @@ class Reference(Rule):
         """Expand the rule and cache it."""
         self.__dict__['rule'] = self.fn()
 
-    def parse(self, s):
+    def parse(self, s, context=None):
         """Parse a string.
 
         :param s: string to parse
         :returns: `Match` or None
         """
-        return self.rule.parse(s)
+        return self.rule.parse(s, context=context)
 
 
 # shorthand names

@@ -33,7 +33,7 @@ class Context(OrderedDict):
 class Match(object):
     """Container for match of a rule."""
 
-    def __init__(self, value, str_value=None, context=None, unparsed=None):
+    def __init__(self, value, str_value=None, unparsed=None):
         """Initializer.
 
         :param value: value that can be captured (defaults to `match`)
@@ -43,7 +43,6 @@ class Match(object):
         """
         self.value = value
         self.str_value = str_value if str_value is not None else str(value)
-        self.context = Context() if context is None else context
         self.unparsed = unparsed
 
     def __repr__(self):
@@ -51,12 +50,9 @@ class Match(object):
 
         :returns: str
         """
-        return '<Match {value!r}{unparsed}{context}>'.format(
+        return '<Match {value!r}{unparsed}>'.format(
             value=self.value,
             unparsed=', unparsed={unparsed!r}'.format(
                 unparsed=self.unparsed,
             ) if self.unparsed else '',
-            context=', context={context!r}'.format(
-                context=self.context,
-            ) if self.context else '',
         )

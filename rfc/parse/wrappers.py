@@ -37,20 +37,20 @@ class RuleWrapper(Rule):
             rule=self.rule,
         )
 
-    def parse(self, s):
+    def parse(self, s, context=None):
         """Wrap the underlying rule's parse method.
 
         :param s: string to parse
         :returns: the result of the underlying rule's parse
         """
-        return self.rule.parse(s)
+        return self.rule.parse(s, context=context)
 
 
 class FullMatch(RuleWrapper):
     """Match the full string, leaving no remainder."""
 
     def parse(self, s, context=None):
-        match = super(FullMatch, self).parse(s)
+        match = super(FullMatch, self).parse(s, context=context)
         if match.unparsed:
             raise NoMatchError(rule=self, unparsed=match.unparsed)
         return match
@@ -75,14 +75,14 @@ class Optional(RuleWrapper):
         """
         return self
 
-    def parse(self, s):
+    def parse(self, s, context=None):
         """Return an empty match in case rule does not match.
 
         :param s: string to parse
         :returns: `Match`
         """
         try:
-            match = super(Optional, self).parse(s)
+            match = super(Optional, self).parse(s, context=context)
         except NoMatchError:
             match = Match(value=self.default, unparsed=s)
         return match
@@ -110,14 +110,15 @@ class Capture(RuleWrapper):
             rule=self.rule,
         )
 
-    def parse(self, s):
+    def parse(self, s, context=None):
         """Return an empty match in case rule does not match.
 
         :param s: string to parse
         :returns: `Match` or None
         """
-        match = super(Capture, self).parse(s)
-        match.context.update({
+        assert context is not None, 'Cannot capture without a context'
+        match = super(Capture, self).parse(s, context=context)
+        context.update({
             self.name: match.value,
         })
         return match
@@ -150,13 +151,13 @@ class Transform(RuleWrapper):
         super(Transform, self).__init__(rule)
         self.fn = fn
 
-    def parse(self, s):
+    def parse(self, s, context=None):
         """Transform the match value.
 
         :param s: string to parse
         :returns: `Match` or None
         """
-        match = super(Transform, self).parse(s)
+        match = super(Transform, self).parse(s, context=context)
         match.value = self.fn(match.value)
         return match
 
@@ -191,13 +192,13 @@ class Assert(RuleWrapper):
         super(Assert, self).__init__(rule, *args, **kwargs)
         self.condition = condition
 
-    def parse(self, s):
+    def parse(self, s, context=None):
         """Fail a successful match if the condition fails.
 
         :param s: string to parse
         :returns: `Match` or None
         """
-        match = super(Assert, self).parse(s)
+        match = super(Assert, self).parse(s, context=context)
         if not self.condition(match):
             raise NoMatchError(rule=self, unparsed=s)
         return match
@@ -235,7 +236,7 @@ class Repeat(RuleWrapper):
             ) if self.delimiter is not None else '',
         )
 
-    def parse(self, s):
+    def parse(self, s, context=None):
         """Collect all matches and wrap them in a overall `Match`.
 
         The context value of the returned `Match` will be a list
@@ -254,13 +255,14 @@ class Repeat(RuleWrapper):
         while True:
             if (self.max is not None) and (len(matches) >= self.max):
                 break
+            context = Context()
             try:
                 if not matches:
                     # first match, no delimiter
-                    match = self.rule.parse(remainder)
+                    match = self.rule.parse(remainder, context=context)
                 else:
                     # subsequent matches include the delimiter (if any)
-                    match = delim_rule.parse(remainder)
+                    match = delim_rule.parse(remainder, context=context)
             except NoMatchError:
                 break
             if remainder == match.unparsed:
@@ -271,17 +273,14 @@ class Repeat(RuleWrapper):
                 raise RuntimeError('Zero-length match in Repeat rule: {rule!r}'.format(
                     rule=(self.delimiter + self.rule) if self.delimiter is not None else self.rule,
                 ))
-            matches.append(match)
+            matches.append((match, context))
             remainder = match.unparsed
             if not remainder:
                 break
         if len(matches) < self.min:
-            return None
-        value = [
-            match.context
-            for match in matches
-        ]
-        str_value = ''.join(match.str_value for match in matches)
+            raise NoMatchError(rule=self, unparsed=s)
+        value = [context for _, context in matches]
+        str_value = ''.join(match.str_value for match, _ in matches)
         match = Match(value=value, str_value=str_value, unparsed=remainder)
         return match
 
@@ -315,13 +314,13 @@ class Flatten(RuleWrapper):
     with a text match of its contents instead.
     """
 
-    def parse(self, s):
+    def parse(self, s, context=None):
         """Flatten the value of a list match into a text match.
 
         :param s: string to parse
         :returns: `Match` or None
         """
-        match = super(Flatten, self).parse(s)
+        match = super(Flatten, self).parse(s, context=context)
         if isinstance(match.value, list):
             match.value = match.str_value
         return match
@@ -342,13 +341,13 @@ class Mapping(Repeat):
         self.key_name = key_name or 'key'
         self.value_name = value_name or 'value'
 
-    def parse(self, s):
-        """Transform the value the match.
+    def parse(self, s, context=None):
+        """Transform the value of the match.
 
         :param s: string to parse
         :returns: `Match` or None
         """
-        match = super(Mapping, self).parse(s)
+        match = super(Mapping, self).parse(s, context=context)
         match.value = Context(
             (kvpair[self.key_name], kvpair[self.value_name])
             for kvpair in match.value
