@@ -8,9 +8,10 @@ __all__ = [
     'Chars',
     'Literal',
     'LiteralCS',
+    'Reference',
     'RegExp',
     'Sequence',
-    'Alt', 'Ch', 'L', 'LC', 'Rx', 'Seq',
+    'Alt', 'Ch', 'L', 'LC', 'Ref', 'Rx', 'Seq',
 ]
 
 
@@ -514,11 +515,36 @@ class Alternatives(Rule):
         return Alternatives(*((other,) + self.rules))
 
 
+class Reference(Rule):
+    """Dynamic reference to a rule.
+
+    This is necessary for self-referential rules.
+    """
+
+    def __init__(self, fn):
+        super(Reference, self).__init__()
+        self.fn = fn
+
+    @property
+    def rule(self):
+        """Expand the rule and cache it."""
+        self.__dict__['rule'] = self.fn()
+
+    def parse(self, s):
+        """Parse a string.
+
+        :param s: string to parse
+        :returns: `Match` or None
+        """
+        return self.rule.parse(s)
+
+
 # shorthand names
 
+Alt = Alternatives
+Ch = Chars
 L = Literal
 LC = LiteralCS
-Ch = Chars
+Ref = Reference
 Rx = RegExp
 Seq = Sequence
-Alt = Alternatives
