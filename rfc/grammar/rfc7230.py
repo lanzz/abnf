@@ -36,17 +36,24 @@ class HTTP:
     BWS = OWS
     RWS = OWS[1:]
 
+    # Imported rules
+    absolute_URI = URI.absolute_URI
+    authority = URI.authority
+    fragment = URI.fragment
+    path_abempty = URI.path_abempty
+    port = URI.port
+    query = URI.query
+    relative_part = URI.relative_part
+    segment = URI.segment
+    uri_host = URI.host
+
     # Components of HTTP messages
     tchar = Ch(R.tchar)
     token = tchar[1:]
     method = token
-    segment = URI.segment
     absolute_path = ('/' + segment)[1:]
-    query = URI.query
     origin_form = absolute_path + ~('?' + query)
-    absolute_URI = URI.absolute_URI
     absolute_form = absolute_URI
-    authority = URI.authority
     authority_form = authority
     asterisk_form = L('*')
     request_target = origin_form | absolute_form | authority_form | asterisk_form
@@ -69,8 +76,6 @@ class HTTP:
 
     # Components of header values
     connection_option = token
-    uri_host = URI.host
-    port = URI.port
     qdtext = Ch(R.qdtext)
     quoted_pair = L('\\') + Ch(ABNF.R.HTAB | ABNF.R.SP | ABNF.R.VCHAR | R.obs_text)
     quoted_string = ABNF.DQUOTE + (qdtext[1:] | quoted_pair)[:] + ABNF.DQUOTE
