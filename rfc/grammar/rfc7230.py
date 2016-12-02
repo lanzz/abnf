@@ -7,6 +7,18 @@ from .rfc3986 import URI
 from .rfc5234 import ABNF
 
 
+OWS = Ch(ABNF.R.SP | ABNF.R.HTAB)[:]
+
+def CSV(rule, min=1, max=None):
+    """Comma-separated list of `rule`.
+
+    Allows empty items (', foo, , bar, ').
+
+    :param rule: rule to match
+    """
+    return (',' + OWS)[:] + rule + (OWS + ',' + ~(OWS + rule))[:]
+
+
 class HTTP:
     """HTTP grammar rules."""
 
@@ -15,6 +27,8 @@ class HTTP:
 
         tchar = CharRange('''!#$%&'*+-.^_`|~''') | ABNF.R.DIGIT | ABNF.R.ALPHA
         obs_text = CharRange(0x80, 0xFF)
+
+    OWS = OWS
 
     tchar = Ch(R.tchar)
     token = tchar[1:]
@@ -41,7 +55,6 @@ class HTTP:
     field_content = field_vchar[1:][1::(Ch(ABNF.R.SP | ABNF.R.HTAB))[1:]]
     obs_fold = ABNF.CRLF + Ch(ABNF.R.SP | ABNF.R.HTAB)[1:]
     field_value = (field_content | obs_fold)[:]
-    OWS = Ch(ABNF.R.SP | ABNF.R.HTAB)[:]
     header_field = field_name + ':' + OWS + field_value + OWS
     message_body = Ch()[:]
     HTTP_message = start_line + (header_field + ABNF.CRLF)[:] + ABNF.CRLF + ~message_body
