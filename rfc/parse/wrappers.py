@@ -1,4 +1,4 @@
-from .containers import Context, Match
+from .containers import Context
 from .rules import ensure_rule, Literal, NoMatchError, Rule
 
 
@@ -33,11 +33,12 @@ class RuleWrapper(Rule):
         """
         return repr(self.rule)
 
-    def parse(self, s, context=None):
-        """Wrap the underlying rule's parse method.
+    def parse(self, s, context):
+        """Relay the parse to the underlying rule.
 
         :param s: string to parse
-        :returns: the result of the underlying rule's parse
+        :param context: parse context
+        :returns: `Context`
         """
         return self.rule.parse(s, context=context)
 
@@ -49,11 +50,18 @@ class FullMatch(RuleWrapper):
         """Render representation."""
         return '{rule!r} <END>'.format(rule=self.rule)
 
-    def parse(self, s, context=None):
-        match = super(FullMatch, self).parse(s, context=context)
-        if match.unparsed:
-            raise NoMatchError(rule=self, unparsed=match.unparsed)
-        return match
+    def parse(self, s, context):
+        """Assert there's no unparsed leftover after match.
+
+        :param s: string to parse
+        :param context: parse context
+        :returns: `Context`
+        :raises: `NoMatchError`
+        """
+        context = super(FullMatch, self).parse(s, context=context)
+        if context._unparsed:
+            raise NoMatchError(rule=self, unparsed=context._unparsed)
+        return context
 
 
 class Optional(RuleWrapper):
@@ -79,17 +87,21 @@ class Optional(RuleWrapper):
         """
         return self
 
-    def parse(self, s, context=None):
-        """Return an empty match in case rule does not match.
+    def parse(self, s, context):
+        """Return a default match in case rule does not match.
 
         :param s: string to parse
-        :returns: `Match`
+        :param context: parse context
+        :returns: `Context`
         """
         try:
-            match = super(Optional, self).parse(s, context=context)
+            context = super(Optional, self).parse(s, context=context.copy())
         except NoMatchError:
-            match = Match(value=self.default, unparsed=s)
-        return match
+            context.update(
+                _match='',
+                _unparsed=s,
+            )
+        return context
 
 
 class Capture(RuleWrapper):
@@ -103,6 +115,7 @@ class Capture(RuleWrapper):
         :param raw: capture the raw value instead of the capturable value
         """
         super(Capture, self).__init__(rule)
+        assert not name.startswith('_'), 'Capture name cannot start with underscore'
         self.name = name
         self.raw = False if raw is None else raw
 
@@ -116,19 +129,22 @@ class Capture(RuleWrapper):
             rule=self.rule,
         )
 
-    def parse(self, s, context=None):
-        """Return an empty match in case rule does not match.
+    def parse(self, s, context):
+        """Store the match as a named value in the context.
 
         :param s: string to parse
-        :returns: `Match` or None
+        :param context: parse context
+        :returns: `Context`
         """
-        assert context is not None, 'Cannot capture without a context'
-        match = super(Capture, self).parse(s, context=context)
-        value = match.value if self.raw or (match.capturable is None) else match.capturable
+        context = super(Capture, self).parse(s, context=context)
+        if self.raw or ('_capturable' not in context):
+            value = context._match
+        else:
+            value = context._capturable
         context.update({
             self.name: value,
         })
-        return match
+        return context
 
     def __pos__(self):
         """Capture the raw value instead of the capturable value.
@@ -156,15 +172,16 @@ class Transform(RuleWrapper):
         super(Transform, self).__init__(rule)
         self.fn = fn
 
-    def parse(self, s, context=None):
-        """Transform the match value.
+    def parse(self, s, context):
+        """Transform the match.
 
         :param s: string to parse
-        :returns: `Match` or None
+        :param context: parse context
+        :returns: `Context`
         """
-        match = super(Transform, self).parse(s, context=context)
-        match.value = self.fn(match.value)
-        return match
+        context = super(Transform, self).parse(s, context=context)
+        context._match = self.fn(context._match)
+        return context
 
 
 def Ignore(rule):
@@ -197,16 +214,18 @@ class Assert(RuleWrapper):
         super(Assert, self).__init__(rule, *args, **kwargs)
         self.condition = condition
 
-    def parse(self, s, context=None):
+    def parse(self, s, context):
         """Fail a successful match if the condition fails.
 
         :param s: string to parse
-        :returns: `Match` or None
+        :param context: parse context
+        :returns: `Context`
+        :raises: `NoMatchError`
         """
-        match = super(Assert, self).parse(s, context=context)
-        if not self.condition(match):
+        context = super(Assert, self).parse(s, context=context)
+        if not self.condition(context):
             raise NoMatchError(rule=self, unparsed=s)
-        return match
+        return context
 
 
 class Repeat(RuleWrapper):
@@ -241,15 +260,16 @@ class Repeat(RuleWrapper):
             ) if self.delimiter is not None else '',
         )
 
-    def parse(self, s, context=None):
-        """Collect all matches and wrap them in a overall `Match`.
+    def parse(self, s, context):
+        """Parse a string.
 
-        The capturable value of the returned `Match` will be a list
-        of the contexts of each repeated match. If you need to capture
-        the textual match, you can specify ``Capture(..., flat=True)``.
+        The capturable value will be a list of the contexts of each repeated match.
+        If you need to capture the textual match, you can specify ``Capture(..., flat=True)``.
 
         :param s: string to parse
-        :returns: `Match` or None
+        :param context: parse context
+        :returns: `Context`
+        :raises: `NoMatchError`
         """
         matches = []
         remainder = s
@@ -266,32 +286,31 @@ class Repeat(RuleWrapper):
             try:
                 if not matches:
                     # first match, no delimiter
-                    match = self.rule.parse(remainder, context=iter_context)
+                    iter_context = self.rule.parse(remainder, context=iter_context)
                 else:
                     # subsequent matches include the delimiter (if any)
-                    match = delim_rule.parse(remainder, context=iter_context)
+                    iter_context = delim_rule.parse(remainder, context=iter_context)
             except NoMatchError:
                 break
-            if remainder == match.unparsed:
+            if remainder == iter_context._unparsed:
                 # a zero-length match will keep matching forever
-                rule = self.rule
-                if self.delimiter is not None:
-                    rule = self.delimiter + self.rule
                 raise RuntimeError('Zero-length match in Repeat rule: {rule!r}'.format(
-                    rule=(self.delimiter + self.rule) if self.delimiter is not None else self.rule,
+                    rule=delim_rule if matches else self.rule,
                 ))
             # discard the parent context, it was only there for the benefit of the child rule
             del iter_context['parent']
-            matches.append((match, iter_context))
-            remainder = match.unparsed
+            matches.append(iter_context)
+            remainder = iter_context._unparsed
             if not remainder:
                 break
         if len(matches) < self.min:
             raise NoMatchError(rule=self, unparsed=s)
-        capturable = [context for _, context in matches]
-        value = ''.join(match.value for match, _ in matches)
-        match = Match(value=value, capturable=capturable, unparsed=remainder)
-        return match
+        context.update(
+            _match=''.join(match._match for match in matches),
+            _capturable=matches,
+            _unparsed=remainder,
+        )
+        return context
 
     def __getitem__(self, item):
         """Item accessor.
@@ -327,18 +346,20 @@ class Mapping(Repeat):
         self.key_name = key_name or 'key'
         self.value_name = value_name or 'value'
 
-    def parse(self, s, context=None):
+    def parse(self, s, context):
         """Transform the value of the match.
 
         :param s: string to parse
-        :returns: `Match` or None
+        :param context: parse context
+        :returns: `Context`
         """
-        match = super(Mapping, self).parse(s, context=context)
-        match.capturable = Context(
-            (kvpair[self.key_name], kvpair[self.value_name])
-            for kvpair in match.capturable
-        )
-        return match
+        context = super(Mapping, self).parse(s, context=context)
+        if isinstance(context.get('_capturable'), list):
+            context._capturable = Context(
+                (kvpair[self.key_name], kvpair[self.value_name])
+                for kvpair in match._capturable
+            )
+        return context
 
 
 # shorthand names
