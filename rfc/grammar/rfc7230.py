@@ -72,8 +72,6 @@ class HTTP:
     header_field = field_name + ':' + OWS + field_value + OWS
     message_body = Ch()[:]
 
-    HTTP_message = start_line + (header_field + ABNF.CRLF)[:] + ABNF.CRLF + ~message_body
-
     # Components of header values
     connection_option = token
     qdtext = Ch(R.qdtext)
@@ -94,7 +92,9 @@ class HTTP:
     ctext = Ch(R.ctext)
     comment = L('(') + (ctext[1:] | quoted_pair | Ref(lambda: HTTP.comment))[:] + L(')')
 
-    # Header values
+
+    # Principal rules
+    HTTP_message = start_line + (header_field + ABNF.CRLF)[:] + ABNF.CRLF + ~message_body
     Connection = CSV(connection_option)
     Content_Length = ABNF.DIGIT[1:]
     Host = uri_host + ~(':' + port)
