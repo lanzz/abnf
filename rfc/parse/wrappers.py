@@ -1,4 +1,4 @@
-from .containers import CaptureDict, Match
+from .containers import Context, Match
 from .rules import ensure_rule, Literal, Rule
 
 
@@ -78,13 +78,13 @@ class Optional(RuleWrapper):
 
 
 class Capture(RuleWrapper):
-    """Capture rule as a named match."""
+    """Capture rule value in the parse context."""
 
     def __init__(self, rule, name):
         """Initializer.
 
         :param rule: rule to wrap
-        :param name: name of the capture
+        :param name: context name for the captured value
         """
         super(Capture, self).__init__(rule)
         self.name = name
@@ -107,7 +107,7 @@ class Capture(RuleWrapper):
         """
         match = super(Capture, self).parse(s)
         if match:
-            match.captures.update({
+            match.context.update({
                 self.name: match.value,
             })
         return match
@@ -119,7 +119,7 @@ class Capture(RuleWrapper):
         +Rep(L('foo')['in'])['out'] => {'out': 'foofoo'}
 
         Rewraps the underlying rule into a `Flatten` instance.
-        `Repeat` rules are usually captured as a list of each matching repetition's captures.
+        `Repeat` rules are usually captured as a list of each matching repetition's context.
         This is not always desirable; `Flatten` will replace the value of the `Repeat` match
         with a text match of its contents instead.
 
@@ -229,10 +229,9 @@ class Repeat(RuleWrapper):
     def parse(self, s):
         """Collect all matches and wrap them in a overall `Match`.
 
-        The capture value of the returned `Match` will be a list
-        of the captures of each repetition. If you need to capture
-        the textual match, you can wrap the `Repeat` inside a
-        `Flatten` rule.
+        The context value of the returned `Match` will be a list
+        of the contexts of each repeated match. If you need to capture
+        the textual match, you can wrap the `Repeat` inside a `Flatten` rule.
 
         :param s: string to parse
         :returns: `Match` or None
@@ -269,7 +268,7 @@ class Repeat(RuleWrapper):
         if len(matches) < self.min:
             return None
         value = [
-            match.captures
+            match.context
             for match in matches
         ]
         str_value = ''.join(match.str_value for match in matches)
@@ -301,7 +300,7 @@ class Flatten(RuleWrapper):
     Rep(L('foo')['in'])['out'] => {'out': [{'in': 'foo'}, {'in': 'foo'}]}
     Flatten(Rep(L('foo')['in']))['out'] => {'out': 'foofoo'}
 
-    `Repeat` rules are usually captured as a list of each matching repetition's captures.
+    `Repeat` rules are usually captured as a list of each matching repetition's context.
     This is not always desirable; `Flatten` will replace the value of the `Repeat` match
     with a text match of its contents instead.
     """
@@ -326,8 +325,8 @@ class Mapping(Repeat):
 
         :param *args: arguments to pass through to super
         :param *kwargs: keyword arguments to pass through to super
-        :param key_name: name of captured value to use for mapping keys (defaults to "key")
-        :param value_name: name of captured value to use for mapping values (defaults to "value")
+        :param key_name: name of context value to use for mapping keys (defaults to "key")
+        :param value_name: name of context value to use for mapping values (defaults to "value")
         """
         super(Mapping, self).__init__(*args, **kwargs)
         self.key_name = key_name or 'key'
@@ -341,7 +340,7 @@ class Mapping(Repeat):
         """
         match = super(Mapping, self).parse(s)
         if match:
-            match.value = CaptureDict(
+            match.value = Context(
                 (kvpair[self.key_name], kvpair[self.value_name])
                 for kvpair in match.value
             )

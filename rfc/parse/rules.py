@@ -1,6 +1,6 @@
 import re
 
-from .containers import CaptureDict, Match
+from .containers import Context, Match
 
 
 __all__ = [
@@ -55,7 +55,7 @@ class Rule(object):
             match = None
         if not match:
             raise NoMatchError
-        return match.captures
+        return match.context
 
     def __getitem__(self, item):
         """Item accessor.
@@ -234,7 +234,7 @@ class RegExp(Rule):
     def parse(self, s):
         """Parse a string.
 
-        Named groups will be extracted as captures.
+        Named groups will be extracted as context.
 
         :param s: string to parse
         :returns: `Match` or None
@@ -243,8 +243,8 @@ class RegExp(Rule):
         if not m:
             return None
         value = m.group(0)
-        captures = m.groupdict()
-        return Match(value=value, captures=captures, unparsed=s[len(value):])
+        context = m.groupdict()
+        return Match(value=value, context=context, unparsed=s[len(value):])
 
 
 class Chars(Rule):
@@ -373,12 +373,12 @@ class Sequence(Rule):
             matches.append(match)
             remainder = match.unparsed
         value = ''.join(match.str_value for match in matches)
-        captures = CaptureDict(
+        context = Context(
             kv
             for match in matches
-            for kv in match.captures.items()
+            for kv in match.context.items()
         )
-        return Match(value=value, captures=captures, unparsed=remainder)
+        return Match(value=value, context=context, unparsed=remainder)
 
     def __add__(self, other):
         """Append another rule to the sequence.

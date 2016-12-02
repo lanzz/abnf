@@ -2,13 +2,13 @@ from collections import OrderedDict
 
 
 __all__ = [
-    'CaptureDict',
+    'Context',
     'Match',
 ]
 
 
-class CaptureDict(OrderedDict):
-    """Container for parse captures.
+class Context(OrderedDict):
+    """Container for parse context.
 
     This is an ordered dictionary that also supports attribute access.
     """
@@ -33,17 +33,17 @@ class CaptureDict(OrderedDict):
 class Match(object):
     """Container for match of a rule."""
 
-    def __init__(self, value, str_value=None, captures=None, unparsed=None):
+    def __init__(self, value, str_value=None, context=None, unparsed=None):
         """Initializer.
 
         :param value: value that can be captured (defaults to `match`)
         :param str_value: string value, if `value` is not string (see `Flatten`)
-        :param captures: dictionary of additional captures
+        :param context: dictionary of the parse context
         :param unparsed: remaining input string after the matching portion
         """
         self.value = value
         self.str_value = str_value if str_value is not None else str(value)
-        self.captures = CaptureDict() if captures is None else captures
+        self.context = Context() if context is None else context
         self.unparsed = unparsed
 
     def __repr__(self):
@@ -51,12 +51,12 @@ class Match(object):
 
         :returns: str
         """
-        return '<Match {value!r}{unparsed}{captures}>'.format(
+        return '<Match {value!r}{unparsed}{context}>'.format(
             value=self.value,
             unparsed=', unparsed={unparsed!r}'.format(
                 unparsed=self.unparsed,
             ) if self.unparsed else '',
-            captures=', captures={captures!r}'.format(
-                captures=self.captures,
-            ) if self.captures else '',
+            context=', context={context!r}'.format(
+                context=self.context,
+            ) if self.context else '',
         )
