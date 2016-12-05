@@ -77,6 +77,7 @@ class Rule(object):
         """Item accessor.
 
         rule['foo']     => capture the rule as "foo"
+        rule['foo':fn]  => filter the value of the rule through fn and capture it as "foo"
         rule[:1]        => optional rule
         rule[5]         => repeat the rule exactly 5 times
         rule[5:]        => repeat the rule at least 5 times
@@ -89,28 +90,44 @@ class Rule(object):
         :returns: `Capture`, `Optional` or `Repeat` rule
         :raises: `KeyError` if `item` is of a wrong type
         """
+        cap = None
+        reps = None
         if isinstance(item, str):
             # capture
-            from .wrappers import Capture
-            return Capture(self, item)
-        reps = None
+            cap = dict(
+                name=item,
+            )
         if isinstance(item, int):
             # exact repetitions
             reps = dict(min=item, max=item)
         elif isinstance(item, slice):
-            if (item.start or 0, item.stop, item.step) == (0, 1, None):
-                # optional
+            if isinstance(item.start, str):
+                # capture with transform
+                cap = dict(
+                    name=item.start,
+                    transform=item.stop,
+                )
+            else:
+                # range of repetitions
+                reps = dict(
+                    min=item.start or 0,
+                    max=item.stop,
+                    delimiter=item.step
+                )
+        if cap:
+            # capture
+            from .wrappers import Capture
+            return Capture(self, **cap)
+        if reps:
+            # repeat
+            if (reps['min'], reps['max']) == (0, 1):
+                # 0 to 1 reps => Optional
                 from .wrappers import Optional
                 return Optional(self)
-            # range of repetitions
-            reps = dict(
-                min=item.start or 0,
-                max=item.stop,
-                delimiter=item.step
-            )
-        if reps:
-            from .wrappers import Repeat
-            return Repeat(self, **reps)
+            else:
+                # range of repetitions
+                from .wrappers import Repeat
+                return Repeat(self, **reps)
         raise KeyError(item)
 
     def __invert__(self):
@@ -380,9 +397,9 @@ class Chars(Rule):
         overrides = None
         if isinstance(item, int):
             overrides = dict(min=item, max=item)
-        elif isinstance(item, slice) and item.step is None:
-            # only return a copy if slice has no step;
-            # slice step is the delimiter for a Repeat rule
+        elif isinstance(item, slice) and not isinstance(item.start, str) and item.step is None:
+            # only return a copy if slice start is not str (which would be a Capture rule)
+            # and has no step (which would be a delimiter for a Repeat rule)
             overrides = dict(min=item.start or 0, max=item.stop)
         if overrides:
             return Chars(self.chars, self.exclude, **overrides)

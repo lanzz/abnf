@@ -321,12 +321,11 @@ class Repeat(RuleWrapper):
         Avoid rewrapping Repeat instances in another Repeat instances,
         return a copy with updated limits instead.
         """
+        overrides = None
         if isinstance(item, int):
             overrides = dict(min=item, max=item)
-        elif isinstance(item, slice):
+        elif isinstance(item, slice) and not isinstance(item.start, str):
             overrides = dict(min=item.start or 0, max=item.stop)
-        else:
-            overrides = None
         if overrides:
             return Repeat(self.rule, delimiter=self.delimiter, **overrides)
         else:
