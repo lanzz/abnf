@@ -66,7 +66,7 @@ class Rule(object):
         """
         from .wrappers import FullMatch
         context = Context()
-        match = FullMatch(self).parse(s, context)
+        context = FullMatch(self).parse(s, context)
         # strip internal keys from context
         for key in list(context):
             if key.startswith('_'):
