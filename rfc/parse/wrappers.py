@@ -6,6 +6,7 @@ __all__ = [
     'Assert',
     'Capture',
     'CaseFold',
+    'Debug',
     'Ignore',
     'Mapping',
     'Optional',
@@ -41,6 +42,17 @@ class RuleWrapper(Rule):
         :returns: `Context`
         """
         return self.rule.parse(s, context=context)
+
+
+class Debug(RuleWrapper):
+    """Break debugger before evaluating the wrapped rule."""
+
+    def parse(self, s, context):
+        """Invoke the debugger."""
+        import pdb
+        pdb.set_trace()
+        match = super(Debug, self).parse(s, context)
+        return match
 
 
 class FullMatch(RuleWrapper):
