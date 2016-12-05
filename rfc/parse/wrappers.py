@@ -6,6 +6,7 @@ __all__ = [
     'Assert',
     'Capture',
     'CaseFold',
+    'Debug',
     'Ignore',
     'Mapping',
     'Optional',
@@ -41,6 +42,17 @@ class RuleWrapper(Rule):
         :returns: `Context`
         """
         return self.rule.parse(s, context=context)
+
+
+class Debug(RuleWrapper):
+    """Break debugger before evaluating the wrapped rule."""
+
+    def parse(self, s, context):
+        """Invoke the debugger."""
+        import pdb
+        pdb.set_trace()
+        match = super(Debug, self).parse(s, context)
+        return match
 
 
 class FullMatch(RuleWrapper):
@@ -173,7 +185,7 @@ class Transform(RuleWrapper):
         :param fn: function to call on the match value
         """
         super(Transform, self).__init__(rule)
-        self.fn = fn
+        self.fn = fn if callable(fn) else lambda m: fn
 
     def parse(self, s, context):
         """Transform the match.
@@ -310,7 +322,7 @@ class Repeat(RuleWrapper):
             raise NoMatchError(rule=self, unparsed=s)
         context.update(
             _match=''.join(match._match for match in matches),
-            _capturable=matches,
+            _capturable=[match.clean() for match in matches],
             _unparsed=remainder,
         )
         return context
