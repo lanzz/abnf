@@ -173,7 +173,7 @@ class Transform(RuleWrapper):
         :param fn: function to call on the match value
         """
         super(Transform, self).__init__(rule)
-        self.fn = fn
+        self.fn = fn if callable(fn) else lambda m: fn
 
     def parse(self, s, context):
         """Transform the match.
