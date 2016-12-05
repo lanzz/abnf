@@ -542,14 +542,15 @@ class Alternatives(Rule):
         :returns: `Context`
         :raises: `NoMatchError`
         """
-        for rule in self.rules:
+        for i, rule in enumerate(self.rules):
             try:
                 iter_context = rule.parse(s, context=context.copy())
             except NoMatchError:
                 continue
-            assert s != iter_context._unparsed, 'Zero-length match in Alternatives rule: {rule!r}'.format(
-                rule=rule,
-            )
+            if (s == iter_context._unparsed) and (i + 1 < len(self.rules)):
+                raise RuntimeError('Zero-length match in non-final Alternatives rule at {s!r}'.format(
+                    s=s,
+                ))
             return iter_context
         raise NoMatchError(rule=self, unparsed=s)
 
