@@ -107,7 +107,7 @@ class Optional(RuleWrapper):
 class Capture(RuleWrapper):
     """Capture rule value in the parse context."""
 
-    def __init__(self, rule, name, raw=None):
+    def __init__(self, rule, name, transform=None, raw=None):
         """Initializer.
 
         :param rule: rule to wrap
@@ -117,6 +117,7 @@ class Capture(RuleWrapper):
         super(Capture, self).__init__(rule)
         assert not name.startswith('_'), 'Capture name cannot start with underscore'
         self.name = name
+        self.transform = transform
         self.raw = False if raw is None else raw
 
     def __repr__(self):
@@ -141,6 +142,8 @@ class Capture(RuleWrapper):
             value = context._match
         else:
             value = context._capturable
+        if self.transform:
+            value = self.transform(value)
         context.update({
             self.name: value,
         })
