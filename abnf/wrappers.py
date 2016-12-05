@@ -1,5 +1,5 @@
-from .containers import Context
 from .rules import ensure_rule, Literal, NoMatchError, Rule
+from .utils import Context
 
 
 __all__ = [

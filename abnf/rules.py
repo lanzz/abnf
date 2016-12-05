@@ -1,7 +1,7 @@
 import re
 
-from .containers import Context
 from .exceptions import *
+from .utils import Context
 
 
 __all__ = [
