@@ -310,7 +310,7 @@ class Repeat(RuleWrapper):
             raise NoMatchError(rule=self, unparsed=s)
         context.update(
             _match=''.join(match._match for match in matches),
-            _capturable=matches,
+            _capturable=[match.clean() for match in matches],
             _unparsed=remainder,
         )
         return context

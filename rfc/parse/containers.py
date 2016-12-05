@@ -35,3 +35,10 @@ class Context(OrderedDict):
                 for key, value in self.items()
             ),
         )
+
+    def clean(self):
+        """Clean up internal sunder keys."""
+        for key in list(self):
+            if key.startswith('_'):
+                del self[key]
+        return self

@@ -67,11 +67,7 @@ class Rule(object):
         from .wrappers import FullMatch
         context = Context()
         context = FullMatch(self).parse(s, context)
-        # strip internal keys from context
-        for key in list(context):
-            if key.startswith('_'):
-                del context[key]
-        return context
+        return context.clean()
 
     def __getitem__(self, item):
         """Item accessor.
