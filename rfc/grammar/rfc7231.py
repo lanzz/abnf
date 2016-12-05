@@ -3,13 +3,28 @@
 Authority: https://tools.ietf.org/html/rfc7231
 """
 
+from .rfc5234 import ABNF
 from .rfc7230 import HTTP
 
 
 class HTTP(HTTP):
     """HTTP grammar rules."""
 
-    # Imported rules
+    # Imported ABNF rules
+    ALPHA = ABNF.ALPHA
+    CR = ABNF.CR
+    CRLF = ABNF.CRLF
+    CTL = ABNF.CTL
+    DIGIT = ABNF.DIGIT
+    DQUOTE = ABNF.DQUOTE
+    HEXDIG = ABNF.HEXDIG
+    HTAB = ABNF.HTAB
+    LF = ABNF.LF
+    OCTET = ABNF.OCTET
+    SP = ABNF.SP
+    VCHAR = ABNF.VCHAR
+
+    # Imported HTTP rules
     BWS = HTTP.BWS
     OWS = HTTP.OWS
     RWS = HTTP.RWS
