@@ -309,8 +309,8 @@ class Repeat(RuleWrapper):
                 break
             if remainder == iter_context._unparsed:
                 # a zero-length match will keep matching forever
-                raise RuntimeError('Zero-length match in Repeat rule: {rule!r}'.format(
-                    rule=delim_rule if matches else self.rule,
+                raise RuntimeError('Zero-length match in Repeat rule at {s!r}'.format(
+                    s=remainder,
                 ))
             # discard the parent context, it was only there for the benefit of the child rule
             del iter_context['parent']
