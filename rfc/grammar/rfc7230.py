@@ -30,16 +30,30 @@ class HTTP:
     class R:
         """Character ranges."""
 
-        tchar = CharRange('''!#$%&'*+-.^_`|~''') | ABNF.R.DIGIT | ABNF.R.ALPHA
+        # Imported ABNF ranges
+        ALPHA = ABNF.R.ALPHA
+        DIGIT = ABNF.R.DIGIT
+        HTAB = ABNF.R.HTAB
+        SP = ABNF.R.SP
+        VCHAR = ABNF.R.VCHAR
+
+        tchar = CharRange('''!#$%&'*+-.^_`|~''') | DIGIT | ALPHA
         obs_text = CharRange(0x80, 0xFF)
-        qdtext = ABNF.R.HTAB | ABNF.R.SP | '!' | CharRange('#', '[') | CharRange(']', '~') | obs_text
-        ctext = ABNF.R.HTAB | ABNF.R.SP | CharRange('!', "'") | CharRange('*', '[') | CharRange(']', '~') | obs_text
+        qdtext = HTAB | SP | '!' | CharRange('#', '[') | CharRange(']', '~') | obs_text
+        ctext = HTAB | SP | CharRange('!', "'") | CharRange('*', '[') | CharRange(']', '~') | obs_text
 
     OWS = OWS
     BWS = OWS
     RWS = OWS[1:]
 
-    # Imported rules
+    # Imported ABNF rules
+    CRLF = ABNF.CRLF
+    DIGIT = ABNF.DIGIT
+    DQUOTE = ABNF.DQUOTE
+    HEXDIG = ABNF.HEXDIG
+    SP = ABNF.SP
+
+    # Imported URI rules
     absolute_URI = URI.absolute_URI
     authority = URI.authority
     fragment = URI.fragment
@@ -61,16 +75,16 @@ class HTTP:
     asterisk_form = L('*')
     request_target = origin_form | absolute_form | authority_form | asterisk_form
     HTTP_name = LC('HTTP')
-    HTTP_version = HTTP_name + '/' + ABNF.DIGIT + '.' + ABNF.DIGIT
-    request_line = method + ABNF.SP + request_target + ABNF.SP + HTTP_version + ABNF.CRLF
-    status_code = ABNF.DIGIT[3]
-    reason_phrase = Ch(ABNF.R.HTAB | ABNF.R.SP | ABNF.R.VCHAR | R.obs_text)[:]
-    status_line = HTTP_version + ABNF.SP + status_code + ABNF.SP + reason_phrase + ABNF.CRLF
+    HTTP_version = HTTP_name + '/' + DIGIT + '.' + DIGIT
+    request_line = method + SP + request_target + SP + HTTP_version + CRLF
+    status_code = DIGIT[3]
+    reason_phrase = Ch(R.HTAB | R.SP | R.VCHAR | R.obs_text)[:]
+    status_line = HTTP_version + SP + status_code + SP + reason_phrase + CRLF
     start_line = request_line | status_line
     field_name = token
-    field_vchar = Ch(ABNF.R.VCHAR | R.obs_text)
-    field_content = field_vchar[1:][1::(Ch(ABNF.R.SP | ABNF.R.HTAB))[1:]]
-    obs_fold = ABNF.CRLF + Ch(ABNF.R.SP | ABNF.R.HTAB)[1:]
+    field_vchar = Ch(R.VCHAR | R.obs_text)
+    field_content = field_vchar[1:][1::(Ch(R.SP | R.HTAB))[1:]]
+    obs_fold = CRLF + Ch(R.SP | R.HTAB)[1:]
     field_value = (field_content | obs_fold)[:]
     header_field = field_name + ':' + OWS + field_value + OWS
     message_body = Ch()[:]
@@ -78,12 +92,12 @@ class HTTP:
     # Components of header values
     connection_option = token
     qdtext = Ch(R.qdtext)
-    quoted_pair = L('\\') + Ch(ABNF.R.HTAB | ABNF.R.SP | ABNF.R.VCHAR | R.obs_text)
-    quoted_string = ABNF.DQUOTE + (qdtext[1:] | quoted_pair)[:] + ABNF.DQUOTE
+    quoted_pair = L('\\') + Ch(R.HTAB | R.SP | R.VCHAR | R.obs_text)
+    quoted_string = DQUOTE + (qdtext[1:] | quoted_pair)[:] + DQUOTE
     transfer_parameter = token + BWS + '=' + BWS + (token | quoted_string)
     transfer_extension = token + (OWS + ';' + OWS + transfer_parameter)[:]
     transfer_coding = L('chunked') | L('compress') | L('deflate') | L('gzip') | transfer_extension
-    rank = ('0' + ~('.' + ABNF.DIGIT[:3])) | ('1' + ~(Ch('0')[:3]))
+    rank = ('0' + ~('.' + DIGIT[:3])) | ('1' + ~(Ch('0')[:3]))
     t_ranking = OWS + ';' + OWS + L('q=') + rank
     t_codings = L('trailers') | (transfer_coding + ~t_ranking)
     protocol_name = token
@@ -96,23 +110,23 @@ class HTTP:
     comment = L('(') + (ctext[1:] | quoted_pair | Ref(lambda ctx: HTTP.comment))[:] + L(')')
 
     # Chunked encoding
-    chunk_size = ABNF.HEXDIG[1:]
+    chunk_size = HEXDIG[1:]
     chunk_ext_name = token
     chunk_ext_val = token | quoted_string
     chunk_ext = (L(';') + chunk_ext_name + ~(L('=') + chunk_ext_val))[:]
     chunk_data = Ch()[:]
-    chunk = chunk_size + ~chunk_ext + ABNF.CRLF + chunk_data + ABNF.CRLF
-    last_chunk = Ch('0')[1:] + ~chunk_ext + ABNF.CRLF
-    trailer_part = header_field[:] + ABNF.CRLF
-    chunked_body = chunk[:] + last_chunk + trailer_part + ABNF.CRLF
+    chunk = chunk_size + ~chunk_ext + CRLF + chunk_data + CRLF
+    last_chunk = Ch('0')[1:] + ~chunk_ext + CRLF
+    trailer_part = header_field[:] + CRLF
+    chunked_body = chunk[:] + last_chunk + trailer_part + CRLF
 
     # Principal rules
-    HTTP_message = start_line + (header_field + ABNF.CRLF)[:] + ABNF.CRLF + ~message_body
+    HTTP_message = start_line + (header_field + CRLF)[:] + CRLF + ~message_body
     http_URI = L('http://') + authority + path_abempty + ~('?' + query) + ~('#' + fragment)
     https_URI = L('https://') + authority + path_abempty + ~('?' + query) + ~('#' + fragment)
     partial_URI = relative_part + ~('?' + query)
     Connection = CSV(connection_option)
-    Content_Length = ABNF.DIGIT[1:]
+    Content_Length = DIGIT[1:]
     Host = uri_host + ~(':' + port)
     TE = CSV(t_codings, min=0)
     Trailer = CSV(field_name)
