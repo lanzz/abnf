@@ -1,6 +1,6 @@
 import re
 
-from .containers import Context, Match
+from .containers import Context
 
 
 __all__ = [
@@ -47,11 +47,13 @@ class NoMatchError(ValueError):
 class Rule(object):
     """Base class for all parser rules."""
 
-    def parse(self, s, context=None):
-        """Parse a string into a `Match` instance.
+    def parse(self, s, context):
+        """Parse a string into the parse context.
 
         :param s: string to parse
-        :returns: `Match` or None
+        :param context: parse context
+        :returns: `Context`
+        :raises: `NoMatchError`
         """
         # by default, do not match anything
         raise NoMatchError(rule=self, unparsed=s)
@@ -64,7 +66,11 @@ class Rule(object):
         """
         from .wrappers import FullMatch
         context = Context()
-        match = FullMatch(self).parse(s, context=context)
+        match = FullMatch(self).parse(s, context)
+        # strip internal keys from context
+        for key in list(context):
+            if key.startswith('_'):
+                del context[key]
         return context
 
     def __getitem__(self, item):
@@ -175,14 +181,19 @@ class WS(Rule):
         """Render representation."""
         return '[ <WS> ]'
 
-    def parse(self, s, context=None):
-        """Parse a string.
+    def parse(self, s, context):
+        """Parse a string into the parse context.
 
         :param s: string to parse
-        :returns: `Match`
+        :param context: parse context
+        :returns: `Context`
         """
-        remaining = s.lstrip()
-        return Match(value='', unparsed=remaining)
+        unparsed = s.lstrip()
+        context.update(
+            _match='',
+            _unparsed=unparsed,
+        )
+        return context
 
 
 class Literal(Rule):
@@ -212,18 +223,24 @@ class Literal(Rule):
         """
         return repr(self.literal)
 
-    def parse(self, s, context=None):
-        """Parse a string.
+    def parse(self, s, context):
+        """Parse a string into the parse context.
 
         :param s: string to parse
-        :returns: `Match` or None
+        :param context: parse context
+        :returns: `Context`
+        :raises: `NoMatchError`
         """
         cs = s.casefold() if self.casefold else s
         if not cs.startswith(self.literal):
             raise NoMatchError(rule=self, unparsed=s)
-        value = s[:self.len]
-        value = value.casefold() if self.casefold else value
-        return Match(value=value, unparsed=s[self.len:])
+        match = s[:self.len]
+        match = match.casefold() if self.casefold else match
+        context.update(
+            _match=match,
+            _unparsed=s[self.len:],
+        )
+        return context
 
 
 def LiteralCS(literal):
@@ -257,20 +274,28 @@ class RegExp(Rule):
             rx=self.regexp.pattern.replace('\\', '\\\\').replace('/', '\\/'),
         )
 
-    def parse(self, s, context=None):
-        """Parse a string.
+    def parse(self, s, context):
+        """Parse a string into the parse context.
 
-        Named groups will be extracted as context.
+        Named groups will be captured as context keys.
 
         :param s: string to parse
-        :returns: `Match` or None
+        :param context: parse context
+        :returns: `Context`
+        :raises: `NoMatchError`
         """
         m = self.regexp.match(s)
         if not m:
             raise NoMatchError(rule=self, unparsed=s)
-        value = m.group(0)
-        context = m.groupdict()
-        return Match(value=value, context=context, unparsed=s[len(value):])
+        groupdict = m.groupdict()
+        assert not any(key.startswith('_') for key in groupdict), 'Capture name cannot start with underscore'
+        match = m.group(0)
+        context.update(
+            _match=match,
+            _unparsed=s[len(match):],
+            **m.groupdict()
+        )
+        return context
 
 
 class Chars(Rule):
@@ -314,30 +339,34 @@ class Chars(Rule):
             ) if self.exclude is not None else '',
         )
 
-    def parse(self, s, context=None):
-        """Parse a string.
+    def parse(self, s, context):
+        """Parse a string into the parse context.
 
         :param s: string to parse
-        :returns: `Match` or None
+        :param context: parse context
+        :returns: `Context`
         """
         if self.chars is self.exclude is None:
             # match anything
-            match = len(s)
+            match_len = len(s)
+        elif len(s):
+            for match_len, c in enumerate(s):
+                if not self._predicate(c):
+                    break
+            else:
+                match_len += 1
         else:
-            match = 0
-            if len(s):
-                for match, c in enumerate(s):
-                    if not self._predicate(c):
-                        break
-                else:
-                    match += 1
+            match_len = 0
         if self.max is not None:
-            match = min(match, self.max)
-        if match < self.min:
+            match_len = min(match_len, self.max)
+        if match_len < self.min:
             # not enough matching characters
             raise NoMatchError(rule=self, unparsed=s)
-        value = s[:match]
-        return Match(value, unparsed=s[match:])
+        context.update(
+            _match=s[:match_len],
+            _unparsed=s[match_len:],
+        )
+        return context
 
     def __getitem__(self, item):
         """Item accessor.
@@ -381,20 +410,27 @@ class Sequence(Rule):
             rules=' '.join(map(repr, self.rules)),
         )
 
-    def parse(self, s, context=None):
-        """Parse a string.
+    def parse(self, s, context):
+        """Parse a string into the parse context.
 
         :param s: string to parse
-        :returns: `Match` or None
+        :param context: parse context
+        :returns: `Context`
         """
         matches = []
-        remainder = s
+        context._unparsed = s
         for rule in self.rules:
-            match = rule.parse(remainder, context=context)
-            matches.append(match)
-            remainder = match.unparsed
-        value = ''.join(match.value for match in matches)
-        return Match(value=value, unparsed=remainder)
+            iter_context = rule.parse(context._unparsed, context=context)
+            if iter_context is not context:
+                context.update(iter_context)
+            # discard any received capturable value
+            if '_capturable' in context:
+                del context['_capturable']
+            matches.append(context._match)
+        context.update(
+            _match=''.join(matches),
+        )
+        return context
 
     def __add__(self, other):
         """Append another rule to the sequence.
@@ -481,21 +517,23 @@ class Alternatives(Rule):
             rules=' | '.join(map(repr, self.rules)),
         )
 
-    def parse(self, s, context=None):
-        """Parse a string.
+    def parse(self, s, context):
+        """Parse a string into the parse context.
 
         :param s: string to parse
-        :returns: `Match` or None
+        :param context: parse context
+        :returns: `Context`
+        :raises: `NoMatchError`
         """
         for rule in self.rules:
             try:
-                match = rule.parse(s, context=context)
+                iter_context = rule.parse(s, context=context.copy())
             except NoMatchError:
                 continue
-            assert s != match.unparsed, 'Zero-length match in Alternatives rule: {rule!r}'.format(
+            assert s != iter_context._unparsed, 'Zero-length match in Alternatives rule: {rule!r}'.format(
                 rule=rule,
             )
-            return match
+            return iter_context
         raise NoMatchError(rule=self, unparsed=s)
 
     def __or__(self, other):
@@ -531,11 +569,12 @@ class Reference(Rule):
         """Render representation."""
         return '<Ref>'
 
-    def parse(self, s, context=None):
-        """Parse a string.
+    def parse(self, s, context):
+        """Parse a string into the parse context.
 
         :param s: string to parse
-        :returns: `Match` or None
+        :param context: parse context
+        :returns: `Context`
         """
         return self.fn(context).parse(s, context=context)
 
