@@ -63,6 +63,7 @@ class HTTP:
     relative_part = URI.relative_part
     segment = URI.segment
     uri_host = URI.host
+    URI_reference = URI.URI_reference
 
     # Components of HTTP messages
     tchar = Ch(R.tchar)
