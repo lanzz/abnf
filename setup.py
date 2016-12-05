@@ -1,12 +1,12 @@
 from setuptools import setup, find_packages
 
 setup(
-    name='rfc-parsers',
+    name='abnf',
     version='0.1',
-    description='Parsers for grammars defined in various RFCs',
-    url='https://github.com/lanzz/rfc-parsers',
+    description='Parse ABNF grammars',
+    url='https://github.com/lanzz/abnf',
     license='MIT',
-    keywords='rfc parser',
+    keywords='abnf parser',
     author='Mihail Milushev',
     author_email='mihail.milushev@lanzz.org',
 
