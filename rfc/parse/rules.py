@@ -214,31 +214,35 @@ class WS(Rule):
 
 
 class Literal(Rule):
-    """Rule matching a literal string.
+    """Rule matching one of a set of literal strings.
 
     Case-insensitive by default; pass casefold=False or use the
     LiteralCS alternate constructor for case-sensitive match.
     """
 
-    def __init__(self, literal, casefold=None):
+    def __init__(self, *literals, casefold=None):
         """Initializer.
 
-        :param literal: literal string to match
+        :param literals: literal strings to match
         :param casefold: boolean indicating if matching should be case-folded
         """
         super(Literal, self).__init__()
         self.casefold = True if casefold is None else casefold
         if self.casefold:
-            literal = literal.casefold()
-        self.literal = literal
-        self.len = len(self.literal)
+            literals = [literal.casefold() for literal in literals]
+        self.literals = literals
+        assert len(self.literals) > 0, 'Need at least one literal to match'
 
     def __repr__(self):
         """Render representation.
 
         :returns: str
         """
-        return repr(self.literal)
+        if len(self.literals) == 1:
+            return repr(self.literals[0])
+        return '({literals})'.format(
+            literals=' | '.join(map(repr, self.literals)),
+        )
 
     def parse(self, s, context):
         """Parse a string into the parse context.
@@ -249,26 +253,26 @@ class Literal(Rule):
         :raises: `NoMatchError`
         """
         cs = s.casefold() if self.casefold else s
-        if not cs.startswith(self.literal):
-            raise NoMatchError(rule=self, unparsed=s)
-        match = s[:self.len]
-        match = match.casefold() if self.casefold else match
-        context.update(
-            _match=match,
-            _unparsed=s[self.len:],
-        )
-        return context
+        for literal in self.literals:
+            if not cs.startswith(literal):
+                continue
+            match_len = len(literal)
+            match = cs[:match_len]
+            context.update(
+                _match=match,
+                _unparsed=s[match_len:],
+            )
+            return context
+        raise NoMatchError(rule=self, unparsed=s)
 
 
-def LiteralCS(literal):
+def LiteralCS(*literals):
     """Rule matching a case-sensitive literal.
 
-    :param literal: literal string to match
-    :param args: arguments to pass through to `Literal`
-    :param kwargs: keyword arguments to pass through to `Literal`
+    :param literals: literal strings to match
     :returns: `Literal`
     """
-    return Literal(literal, casefold=False)
+    return Literal(*literals, casefold=False)
 
 
 class RegExp(Rule):
