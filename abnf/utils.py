@@ -57,6 +57,7 @@ def _relay_op(method):
     :returns: function
     """
     method = getattr(set, method)
+
     @wraps(method)
     def op(self, other=None):
         if other is None:
@@ -69,6 +70,7 @@ def _relay_op(method):
         if isinstance(value, set):
             value = type(self)(value)
         return value
+
     return op
 
 
