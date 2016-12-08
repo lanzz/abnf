@@ -12,4 +12,12 @@ setup(
 
     packages=find_packages(),
     python_requires='>=3.5',
+
+    setup_requires=[
+        'pytest-runner',
+    ],
+    tests_require=[
+        'pytest-cov',
+        'pytest-flake8',
+    ],
 )
